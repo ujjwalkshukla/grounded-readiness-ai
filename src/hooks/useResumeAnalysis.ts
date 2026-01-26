@@ -116,58 +116,89 @@ export function useResumeAnalysis() {
 }
 
 async function extractTextFromFile(file: File): Promise<string> {
-  // For text-based extraction, we'll read the file as text
-  // In production, you'd want to use a proper PDF parser
-  
+  // For text files, read directly
   if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
     return await file.text();
   }
 
-  // For PDF/DOCX, we'll try to read as text (this is a simplified approach)
-  // A more robust solution would use PDF.js or similar
+  // For PDFs, use pdf.js for proper extraction
+  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+    return await extractTextFromPDF(file);
+  }
+
+  // For DOCX, extract text from XML content
+  if (file.name.toLowerCase().endsWith('.docx')) {
+    return await extractTextFromDOCX(file);
+  }
+
+  throw new Error('Unsupported file format. Please upload a PDF, DOCX, or TXT file.');
+}
+
+async function extractTextFromPDF(file: File): Promise<string> {
+  const pdfjsLib = await import('pdfjs-dist');
+  
+  // Set up the worker
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js`;
+  
   const arrayBuffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   
-  // Try to extract readable text from binary
-  let text = '';
-  let inText = false;
-  let buffer = '';
+  const textParts: string[] = [];
   
-  for (let i = 0; i < bytes.length; i++) {
-    const char = bytes[i];
-    
-    // Check for PDF text markers
-    if (char >= 32 && char <= 126) {
-      buffer += String.fromCharCode(char);
-      if (buffer.length > 3) inText = true;
-    } else if (char === 10 || char === 13) {
-      if (inText && buffer.length > 5) {
-        text += buffer + '\n';
-      }
-      buffer = '';
-      inText = false;
-    } else {
-      if (inText && buffer.length > 5) {
-        text += buffer + ' ';
-      }
-      buffer = '';
-      inText = false;
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item: any) => item.str)
+      .join(' ');
+    textParts.push(pageText);
+  }
+  
+  const fullText = textParts.join('\n\n').trim();
+  
+  if (fullText.length < 50) {
+    throw new Error('Could not extract sufficient text from the PDF. The file may be scanned or image-based.');
+  }
+  
+  return fullText;
+}
+
+async function extractTextFromDOCX(file: File): Promise<string> {
+  // DOCX files are ZIP archives containing XML
+  const JSZip = (await import('jszip')).default;
+  
+  const arrayBuffer = await file.arrayBuffer();
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  
+  // Get the main document content
+  const docXml = await zip.file('word/document.xml')?.async('string');
+  
+  if (!docXml) {
+    throw new Error('Invalid DOCX file format.');
+  }
+  
+  // Parse XML and extract text content
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(docXml, 'application/xml');
+  
+  // Extract text from all <w:t> elements
+  const textNodes = doc.getElementsByTagName('w:t');
+  const textParts: string[] = [];
+  
+  for (let i = 0; i < textNodes.length; i++) {
+    const text = textNodes[i].textContent;
+    if (text) {
+      textParts.push(text);
     }
   }
-
-  // Clean up extracted text
-  text = text
-    .replace(/[^\x20-\x7E\n]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .replace(/\n\s*\n/g, '\n')
-    .trim();
-
-  // If extraction failed, throw error with helpful message
-  if (text.length < 50) {
-    throw new Error('Could not extract text from file. Please ensure the file contains readable text or try a different format.');
+  
+  const fullText = textParts.join(' ').trim();
+  
+  if (fullText.length < 50) {
+    throw new Error('Could not extract sufficient text from the DOCX file.');
   }
-
-  return text;
+  
+  return fullText;
 }
 
 function sleep(ms: number): Promise<void> {
