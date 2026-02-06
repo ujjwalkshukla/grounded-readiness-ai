@@ -2,13 +2,155 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface AnalysisRequest {
   resumeText: string;
   customCriteria?: string;
 }
+
+// Domain-specific evaluation criteria - these are FIXED per domain
+const DOMAIN_CRITERIA: Record<string, { name: string; description: string; signals: string[] }[]> = {
+  "Data Science": [
+    {
+      name: "Applied ML & Model Building",
+      description: "Hands-on experience building, training, and deploying machine learning models",
+      signals: ["ML", "machine learning", "model", "tensorflow", "pytorch", "sklearn", "neural network", "deep learning", "training", "inference"]
+    },
+    {
+      name: "Data Infrastructure & Engineering",
+      description: "Experience with data pipelines, SQL, big data tools, and data processing at scale",
+      signals: ["SQL", "pipeline", "ETL", "spark", "hadoop", "data warehouse", "airflow", "dbt", "data engineering", "database"]
+    },
+    {
+      name: "Business Impact & Problem Framing",
+      description: "Ability to translate business problems into data solutions with measurable outcomes",
+      signals: ["increased", "reduced", "improved", "ROI", "revenue", "efficiency", "stakeholder", "business", "impact", "metrics", "%"]
+    }
+  ],
+  "Software Engineering": [
+    {
+      name: "AI/ML Tool Integration",
+      description: "Experience integrating AI APIs, LLMs, or ML models into software systems",
+      signals: ["API", "OpenAI", "LLM", "GPT", "AI integration", "ML ops", "model serving", "inference", "embedding"]
+    },
+    {
+      name: "Modern Architecture & Automation",
+      description: "Experience with CI/CD, cloud infrastructure, containerization, and automation",
+      signals: ["CI/CD", "docker", "kubernetes", "AWS", "GCP", "Azure", "terraform", "automation", "DevOps", "microservices"]
+    },
+    {
+      name: "Adaptability & Continuous Learning",
+      description: "Evidence of learning new technologies and adapting to changing tech landscape",
+      signals: ["learned", "adopted", "migrated", "upgraded", "new technology", "certification", "training", "hackathon"]
+    }
+  ],
+  "Product Management": [
+    {
+      name: "AI Product Strategy",
+      description: "Experience defining AI-powered product features or working with AI/ML teams",
+      signals: ["AI feature", "ML product", "data-driven", "personalization", "recommendation", "automation", "AI roadmap"]
+    },
+    {
+      name: "Data-Informed Decision Making",
+      description: "Using analytics, A/B testing, and metrics to drive product decisions",
+      signals: ["A/B test", "analytics", "metrics", "KPI", "conversion", "retention", "data-driven", "experiment"]
+    },
+    {
+      name: "Cross-Functional Technical Collaboration",
+      description: "Working closely with engineering, data science, and design teams",
+      signals: ["engineering team", "data science", "technical spec", "API", "architecture", "sprint", "agile", "scrum"]
+    }
+  ],
+  "Marketing": [
+    {
+      name: "Marketing Automation & AI Tools",
+      description: "Experience with AI-powered marketing tools, automation platforms, or personalization",
+      signals: ["automation", "personalization", "AI tool", "chatbot", "programmatic", "MarTech", "HubSpot", "Marketo"]
+    },
+    {
+      name: "Data Analytics & Attribution",
+      description: "Using data and analytics to measure and optimize marketing performance",
+      signals: ["analytics", "attribution", "ROI", "conversion", "Google Analytics", "metrics", "dashboard", "reporting"]
+    },
+    {
+      name: "Content Strategy at Scale",
+      description: "Managing content creation, optimization, and distribution at scale",
+      signals: ["content strategy", "SEO", "content optimization", "campaign", "A/B test", "engagement", "reach"]
+    }
+  ],
+  "Finance": [
+    {
+      name: "Financial Modeling & Automation",
+      description: "Building automated financial models, forecasts, or algorithmic analysis",
+      signals: ["model", "forecast", "automation", "algorithm", "Python", "Excel VBA", "quantitative", "automated"]
+    },
+    {
+      name: "Data Analysis & Reporting",
+      description: "Analyzing large financial datasets and creating data-driven insights",
+      signals: ["analysis", "SQL", "data", "dashboard", "reporting", "visualization", "Excel", "Tableau", "Power BI"]
+    },
+    {
+      name: "Risk & Compliance Technology",
+      description: "Working with risk models, compliance systems, or regulatory technology",
+      signals: ["risk", "compliance", "regulatory", "audit", "controls", "monitoring", "detection", "fraud"]
+    }
+  ],
+  "Design": [
+    {
+      name: "AI-Assisted Design Tools",
+      description: "Experience using AI design tools, generative design, or design automation",
+      signals: ["AI tool", "Figma AI", "generative", "automation", "prototype", "Midjourney", "DALL-E", "design system"]
+    },
+    {
+      name: "Data-Driven Design Decisions",
+      description: "Using user research, analytics, and testing to inform design choices",
+      signals: ["user research", "A/B test", "analytics", "usability", "conversion", "metrics", "data-driven", "heatmap"]
+    },
+    {
+      name: "Design Systems & Scalability",
+      description: "Creating scalable design systems, components, and design operations",
+      signals: ["design system", "component", "library", "Figma", "tokens", "scalable", "documentation", "DesignOps"]
+    }
+  ],
+  "Sales": [
+    {
+      name: "Sales Technology & CRM",
+      description: "Using CRM systems, sales automation, and AI-powered sales tools",
+      signals: ["Salesforce", "CRM", "HubSpot", "automation", "pipeline", "forecasting", "lead scoring", "outreach"]
+    },
+    {
+      name: "Data-Driven Sales Performance",
+      description: "Using metrics and analytics to optimize sales performance",
+      signals: ["quota", "revenue", "metrics", "conversion", "pipeline", "forecast", "performance", "growth", "%"]
+    },
+    {
+      name: "Consultative & Technical Selling",
+      description: "Selling technical or complex solutions requiring deep product knowledge",
+      signals: ["enterprise", "technical", "solution", "demo", "POC", "implementation", "integration", "complex"]
+    }
+  ]
+};
+
+// Default criteria for unknown domains
+const DEFAULT_CRITERIA = [
+  {
+    name: "Technical Adaptability",
+    description: "Ability to learn and adopt new technologies, especially AI tools",
+    signals: ["technology", "tool", "software", "system", "platform", "learned", "adopted", "implemented"]
+  },
+  {
+    name: "Data Literacy",
+    description: "Comfort working with data, analytics, and data-driven decision making",
+    signals: ["data", "analytics", "metrics", "analysis", "reporting", "dashboard", "insights", "Excel", "SQL"]
+  },
+  {
+    name: "Process Automation",
+    description: "Experience automating workflows or improving operational efficiency",
+    signals: ["automation", "process", "efficiency", "streamlined", "improved", "reduced", "optimized", "workflow"]
+  }
+];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -50,20 +192,18 @@ serve(async (req) => {
   } catch (e) {
     console.error("Resume analysis error:", e);
     
-    if (e instanceof Response) {
-      const status = e.status;
-      if (status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Service temporarily unavailable. Please try again later." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    const errorResponse = e as Response;
+    if (errorResponse?.status === 429) {
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (errorResponse?.status === 402) {
+      return new Response(
+        JSON.stringify({ error: "Service temporarily unavailable. Please try again later." }),
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(
@@ -73,18 +213,25 @@ serve(async (req) => {
   }
 });
 
-async function callAI(messages: { role: string; content: string }[], apiKey: string) {
+async function callAI(messages: { role: string; content: string }[], apiKey: string, tools?: unknown[], tool_choice?: unknown) {
+  const body: Record<string, unknown> = {
+    model: "google/gemini-3-flash-preview",
+    messages,
+    temperature: 0.2,
+  };
+  
+  if (tools) {
+    body.tools = tools;
+    body.tool_choice = tool_choice;
+  }
+
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages,
-      temperature: 0.3,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -92,152 +239,253 @@ async function callAI(messages: { role: string; content: string }[], apiKey: str
   }
 
   const data = await response.json();
+  
+  // Handle tool calls
+  if (data.choices[0]?.message?.tool_calls) {
+    const toolCall = data.choices[0].message.tool_calls[0];
+    return JSON.parse(toolCall.function.arguments);
+  }
+  
   return data.choices[0]?.message?.content || "";
 }
 
 async function performFullAnalysis(resumeText: string, apiKey: string) {
-  // Step 1: Detect domain and extract structured info
-  const domainPrompt = `You are a resume analyzer. Analyze this resume and detect the primary career domain.
+  // Step 1: Detect domain using structured output
+  const domainTools = [
+    {
+      type: "function",
+      function: {
+        name: "detect_domain",
+        description: "Detect the primary career domain from a resume",
+        parameters: {
+          type: "object",
+          properties: {
+            domain: {
+              type: "string",
+              enum: ["Data Science", "Software Engineering", "Product Management", "Marketing", "Finance", "Design", "Sales", "Unknown"],
+              description: "The primary career domain detected"
+            },
+            confidence: {
+              type: "number",
+              description: "Confidence score between 0 and 1"
+            },
+            evidence: {
+              type: "array",
+              items: { type: "string" },
+              description: "Key phrases from resume indicating this domain"
+            },
+            years_experience: {
+              type: "number",
+              description: "Estimated total years of experience"
+            }
+          },
+          required: ["domain", "confidence", "evidence", "years_experience"],
+          additionalProperties: false
+        }
+      }
+    }
+  ];
+
+  const domainPrompt = `Analyze this resume and detect the PRIMARY career domain. 
+Be STRICT - only classify into a domain if there is strong evidence.
+Look at job titles, skills, and work history to determine the domain.
+
+IMPORTANT: A software engineer is NOT a data scientist unless they specifically work on ML/AI.
+A product manager is different from a software engineer.
 
 RESUME:
-${resumeText}
-
-Return ONLY valid JSON (no markdown, no explanation):
-{
-  "domain": "one of: Data Science, Software Engineering, Marketing, Finance, Design, Sales, Product Management, Operations, Human Resources, Healthcare, Education, Legal, Unknown",
-  "confidence": 0.0 to 1.0,
-  "evidence": ["key phrases from resume that indicate this domain"],
-  "total_years_experience": estimated years as number,
-  "key_skills": ["list of main skills found"],
-  "key_achievements": ["notable achievements with metrics if present"]
-}`;
-
-  const domainResponse = await callAI([
-    { role: "system", content: "You analyze resumes. Return only valid JSON, no markdown formatting." },
-    { role: "user", content: domainPrompt }
-  ], apiKey);
+${resumeText}`;
 
   let domainData;
   try {
-    const cleanJson = domainResponse.replace(/```json\n?|\n?```/g, '').trim();
-    domainData = JSON.parse(cleanJson);
+    domainData = await callAI(
+      [
+        { role: "system", content: "You are a resume analyzer. Detect career domains accurately based on evidence." },
+        { role: "user", content: domainPrompt }
+      ],
+      apiKey,
+      domainTools,
+      { type: "function", function: { name: "detect_domain" } }
+    );
   } catch {
     domainData = {
       domain: "Unknown",
       confidence: 0.5,
       evidence: [],
-      total_years_experience: 0,
-      key_skills: [],
-      key_achievements: []
+      years_experience: 0
     };
   }
 
-  // Step 2: Generate and evaluate criteria
-  const criteriaPrompt = `You are an AI readiness evaluator. Based on this ${domainData.domain} professional's resume, generate 3 criteria to evaluate their AI readiness and score each.
+  // Step 2: Get domain-specific criteria
+  const criteria = DOMAIN_CRITERIA[domainData.domain] || DEFAULT_CRITERIA;
+
+  // Step 3: Evaluate each criterion strictly against the resume
+  const evaluationTools = [
+    {
+      type: "function",
+      function: {
+        name: "evaluate_criteria",
+        description: "Evaluate resume against specific criteria",
+        parameters: {
+          type: "object",
+          properties: {
+            criteria_results: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  criterion: { type: "string" },
+                  score: { 
+                    type: "number",
+                    description: "Score 0-100. Give LOW scores (0-30) if no evidence. Medium (30-60) if some evidence. High (60-100) only with strong, specific evidence."
+                  },
+                  explanation: { type: "string" },
+                  evidence_used: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "EXACT quotes from the resume. Empty if no evidence found."
+                  }
+                },
+                required: ["criterion", "score", "explanation", "evidence_used"],
+                additionalProperties: false
+              }
+            }
+          },
+          required: ["criteria_results"],
+          additionalProperties: false
+        }
+      }
+    }
+  ];
+
+  const evaluationPrompt = `You are evaluating a resume for ${domainData.domain} AI readiness.
+
+CRITICAL RULES:
+1. ONLY use evidence that exists in the resume - do NOT assume or infer skills not mentioned
+2. If a criterion has NO supporting evidence in the resume, the score MUST be 0-20
+3. If evidence is WEAK or indirect, score 20-50
+4. Only give scores 70+ if there is STRONG, SPECIFIC evidence with details
+5. Quote EXACT text from the resume as evidence
+6. Different domains have different criteria - a Data Scientist needs ML experience, a PM needs product strategy
+7. Someone with NO ${domainData.domain} experience should score LOW even if they're experienced in other fields
+
+CRITERIA TO EVALUATE:
+${criteria.map((c, i) => `${i + 1}. ${c.name}: ${c.description}
+   Look for: ${c.signals.join(", ")}`).join("\n\n")}
 
 RESUME:
 ${resumeText}
 
-DOMAIN: ${domainData.domain}
-EXPERIENCE: ${domainData.total_years_experience} years
-KEY SKILLS: ${domainData.key_skills.join(", ")}
+For each criterion, find specific evidence. If you cannot find evidence, give a low score and explain what's missing.`;
 
-For AI readiness, evaluate criteria like:
-- Technical adaptability (ability to learn and use AI tools)
-- Data-driven decision making
-- Automation mindset
-- Cross-functional collaboration
-- Innovation and experimentation
-- Domain-specific AI applications
-
-IMPORTANT RULES:
-1. Base ALL evaluations ONLY on evidence in the resume
-2. If evidence is weak for a criterion, give a lower score
-3. Quote specific resume content as evidence
-4. Never make assumptions about skills not mentioned
-
-Return ONLY valid JSON:
-{
-  "criteria_results": [
-    {
-      "criterion": "Criterion Name",
-      "score": 0-100,
-      "explanation": "Clear explanation referencing resume evidence",
-      "evidence_used": ["exact quotes or paraphrases from resume"]
-    }
-  ],
-  "overall_score": weighted average 0-100,
-  "band": "one of: Excellent (80-100), Good (65-79), Moderate (50-64), Developing (35-49), Beginning (0-34)"
-}`;
-
-  const criteriaResponse = await callAI([
-    { role: "system", content: "You evaluate AI readiness based only on resume evidence. Return only valid JSON, no markdown." },
-    { role: "user", content: criteriaPrompt }
-  ], apiKey);
-
-  let criteriaData;
+  let evaluationData;
   try {
-    const cleanJson = criteriaResponse.replace(/```json\n?|\n?```/g, '').trim();
-    criteriaData = JSON.parse(cleanJson);
-  } catch {
-    criteriaData = {
-      criteria_results: [
-        {
-          criterion: "Technical Adaptability",
-          score: 50,
-          explanation: "Unable to fully parse resume. Please try again.",
-          evidence_used: []
-        }
+    evaluationData = await callAI(
+      [
+        { role: "system", content: "You evaluate resumes strictly based on evidence. No assumptions. Low scores for missing evidence." },
+        { role: "user", content: evaluationPrompt }
       ],
-      overall_score: 50,
-      band: "Moderate"
+      apiKey,
+      evaluationTools,
+      { type: "function", function: { name: "evaluate_criteria" } }
+    );
+  } catch (e) {
+    console.error("Evaluation error:", e);
+    evaluationData = {
+      criteria_results: criteria.map(c => ({
+        criterion: c.name,
+        score: 25,
+        explanation: "Unable to evaluate. Please try again.",
+        evidence_used: []
+      }))
     };
   }
 
+  // Calculate overall score with proper weighting
+  const scores = evaluationData.criteria_results.map((r: { score: number }) => r.score);
+  const overallScore = Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length);
+
+  // Determine band based on score
+  let band: string;
+  if (overallScore >= 80) band = "Excellent";
+  else if (overallScore >= 65) band = "Good";
+  else if (overallScore >= 50) band = "Moderate";
+  else if (overallScore >= 35) band = "Developing";
+  else band = "Beginning";
+
   return {
-    overall_score: criteriaData.overall_score,
-    band: criteriaData.band,
+    overall_score: overallScore,
+    band,
     domain: domainData.domain,
     domain_confidence: domainData.confidence,
-    criteria_results: criteriaData.criteria_results
+    criteria_results: evaluationData.criteria_results
   };
 }
 
 async function evaluateCustomCriteria(resumeText: string, customCriteria: string, apiKey: string) {
-  const prompt = `You are evaluating a specific criterion for AI readiness based on a resume.
+  const tools = [
+    {
+      type: "function",
+      function: {
+        name: "evaluate_criterion",
+        description: "Evaluate a single criterion against a resume",
+        parameters: {
+          type: "object",
+          properties: {
+            has_evidence: {
+              type: "boolean",
+              description: "Whether ANY evidence was found for this criterion"
+            },
+            criterion: { type: "string" },
+            score: { 
+              type: "number",
+              description: "Score 0-100. 0 if no evidence at all."
+            },
+            explanation: { type: "string" },
+            evidence_used: {
+              type: "array",
+              items: { type: "string" }
+            }
+          },
+          required: ["has_evidence", "criterion", "score", "explanation", "evidence_used"],
+          additionalProperties: false
+        }
+      }
+    }
+  ];
 
-CRITERION TO EVALUATE: ${customCriteria}
+  const prompt = `Evaluate this resume for the criterion: "${customCriteria}"
+
+RULES:
+1. Search the resume for ANY evidence related to this criterion
+2. If NO evidence exists, set has_evidence to false and score to 0
+3. Quote exact text from the resume as evidence
+4. Do not assume or infer - only use what's written
 
 RESUME:
-${resumeText}
-
-IMPORTANT RULES:
-1. ONLY use evidence present in the resume
-2. If no evidence supports this criterion, return null
-3. Be specific about what evidence you found or didn't find
-4. Quote exact content from the resume as evidence
-
-Return ONLY valid JSON (or null if no evidence):
-{
-  "criterion": "${customCriteria}",
-  "score": 0-100 based on evidence strength,
-  "explanation": "Explanation citing specific resume evidence",
-  "evidence_used": ["exact quotes from resume supporting the evaluation"]
-}
-
-If you cannot find ANY evidence for this criterion in the resume, return exactly: null`;
-
-  const response = await callAI([
-    { role: "system", content: "You evaluate criteria using only resume evidence. Return valid JSON or null." },
-    { role: "user", content: prompt }
-  ], apiKey);
+${resumeText}`;
 
   try {
-    const cleanJson = response.replace(/```json\n?|\n?```/g, '').trim();
-    if (cleanJson === "null" || cleanJson === "") {
+    const result = await callAI(
+      [
+        { role: "system", content: "Evaluate strictly based on resume evidence only." },
+        { role: "user", content: prompt }
+      ],
+      apiKey,
+      tools,
+      { type: "function", function: { name: "evaluate_criterion" } }
+    );
+
+    if (!result.has_evidence) {
       return null;
     }
-    return JSON.parse(cleanJson);
+
+    return {
+      criterion: result.criterion,
+      score: result.score,
+      explanation: result.explanation,
+      evidence_used: result.evidence_used
+    };
   } catch {
     return null;
   }
