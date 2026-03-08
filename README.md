@@ -1,73 +1,47 @@
-# Welcome to your Lovable project
-
 ## Project info
 
-**URL**: https://grounded-readiness-ai.lovable.app
+# Grounded AI Readiness
 
-## How can I edit this code?
+Grounded AI Readiness is an AI powered evaluation tool that analyzes a user's resume and provides an evidence based assessment of their readiness for the AI driven workforce.
 
-There are several ways of editing your application.
+The application uses large language models to perform domain detection and structured capability analysis directly from resume content. Instead of generic scoring, the system performs grounded reasoning by identifying explicit evidence in the resume and mapping it against domain specific AI readiness pillars.
 
-**Use Lovable**
+The goal of this project is to provide professionals with a realistic view of how prepared they are for AI driven roles and what capability gaps they need to address.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Key Features
 
-Changes made via Lovable will be committed automatically to this repo.
+* **Automated Domain Detection**
+  Identifies the candidate’s primary professional domain from resume content.
 
-**Use your preferred IDE**
+* **AI Readiness Scoring**
+  Evaluates the resume against domain specific AI capability pillars and generates a structured readiness score.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+* **Evidence Based Analysis**
+  Every score is supported with evidence extracted directly from the resume.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+* **Custom Capability Queries**
+  Users can ask targeted questions such as readiness for specific AI tools, workflows, or technologies.
 
-Follow these steps:
+* **Structured AI Evaluation Output**
+  Results are returned in a consistent JSON structure that includes scores, reasoning, and evidence snippets.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Tech Stack
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+* React + Vite
+* TypeScript
+* TailwindCSS
+* TanStack Query
+* Gemini API (Google Generative AI)
+* GitHub Pages for deployment
 
-# Step 3: Install the necessary dependencies.
-npm i
+## Live Application
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+**App:**
 
-**Edit a file directly in GitHub**
+**Lovable Prototype**: https://grounded-readiness-ai.lovable.app
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+**Github URL**: https://ujjwalkshukla.github.io/grounded-readiness-ai/
 
-**Use GitHub Codespaces**
+## Purpose of the Project
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+This project explores how AI models can be used for **structured capability evaluation rather than simple text generation**. By grounding responses in resume evidence and enforcing schema based outputs, the system demonstrates how LLMs can support decision making workflows in hiring, upskilling, and career planning.
